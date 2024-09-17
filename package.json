@@ -1,0 +1,8 @@
+"scripts":{
+    "test":"sam deploy --guided --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM",
+    "test2":"sam deploy --guided --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM",
+
+    "dev": "sam deploy --stack-name deploy-dev-legalmap-api-service --parameter-overrides Environment=dev --s3-bucket deploy-dev-legalmap-api-service --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM  --no-disable-rollback --confirm-changeset",
+    "stack:delete:dev": "aws cloudformation delete-stack --stack-name deploy-dev-legalmap-api-service",
+    "start:api":"sam local start-api"
+}

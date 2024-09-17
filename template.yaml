@@ -1,0 +1,113 @@
+# https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-controlling-access-to-apis-customize-response.html
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  SAM Template for legalmapApiServiceGetPdf with environment-based resource naming.
+
+Parameters:
+  Environment:
+    Type: String
+    Description: "Environnement (dev, master, etc.)"
+    Default: "dev"  # Par défaut, environnement de développement
+
+Globals:
+  Function:
+    Timeout: 60
+    MemorySize: 1024
+
+Resources:
+  # Fonction Lambda avec un nom basé sur l'environnement
+  LegalmapApiServiceGetPdfFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${Environment}_legalmapApiServiceGetPdf"
+      CodeUri: legalmapApiServiceGetPdf/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Architectures:
+        - x86_64
+      Role: !GetAtt LegalmapApiServiceGetPdfRole.Arn
+
+      # ICI POUR UNE API LOCALE
+      # Events:
+      #   GetPdfs:
+      #     Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+      #     Properties:
+      #       Path: /dev/pdfs/{acte_id}
+      #       Method: get
+
+      #ICI POUR API DISTANTE (TOUT COMMENTER A PARTIR DE LA POUR UNE API LOCALE)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref LegalmapApiService  # L'ID de l'API basé sur l'environnement
+            Path: /pdfs/{acte_id}
+            Method: ANY
+            Auth:
+              Authorizer: AWS_IAM
+              AuthorizationScopes: []
+
+  # API Gateway avec un nom basé sur l'environnement
+  LegalmapApiService:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub "${Environment}_legalmapApiService"  # Nom de l'API Gateway basé sur l'environnement
+      StageName: !Ref Environment
+      # Cors: "'*'"
+      EndpointConfiguration:
+        Type: REGIONAL
+      Cors:
+        AllowMethods: "'OPTIONS,POST,GET,PUT,DELETE'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent,X-amz-content-sha256'"
+        AllowOrigin: "'*'"
+
+      
+
+  # Rôle IAM pour la Lambda avec un nom basé sur l'environnement
+  LegalmapApiServiceGetPdfRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Environment}_legalmapApiServiceGetPdf_role"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+
+      ManagedPolicyArns:
+        - arn:aws:iam::355732065694:policy/legalmap-s3-ocr-docs-getobject
+        - arn:aws:iam::355732065694:policy/legalmap-s3-ocr-docs-text-getobject
+        - arn:aws:iam::355732065694:policy/legalmap-cloudwatch-dev-policy
+
+  # Permissions Lambda pour l'API Gateway
+  LegalmapApiServiceGetPdfApiPermissionStage:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LegalmapApiServiceGetPdfFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${LegalmapApiService}/*/${Environment}/pdfs2/*"
+
+  # Déploiement de l'API Gateway
+  LegalmapApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: LegalmapApiService
+    Properties:
+      RestApiId: !Ref LegalmapApiService
+      StageName: !Ref Environment
+
+Outputs:
+  LegalmapApiServiceGetPdfFunctionName:
+    Description: "Nom de la fonction Lambda"
+    Value: !Ref LegalmapApiServiceGetPdfFunction
+
+  LegalmapApiServiceGetPdfFunctionArn:
+    Description: "ARN de la fonction Lambda"
+    Value: !GetAtt LegalmapApiServiceGetPdfFunction.Arn
+
+  LegalmapApiUrl:
+    Description: "URL de l'API Gateway"
+    Value: !Sub "https://${LegalmapApiService}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/"
