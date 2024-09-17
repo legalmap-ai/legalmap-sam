@@ -134,7 +134,7 @@ def find_text_blocks_with_tolerance(textract_data: dict, phrases: List[str], tol
     """
     matches = []
     lines = []
-
+    details = {}
     # Récupérer les lignes des blocs Textract
     page_index = 0
 
@@ -157,6 +157,9 @@ def find_text_blocks_with_tolerance(textract_data: dict, phrases: List[str], tol
         matched_lines = is_text_in_lines(phrase, lines, tolerance)
         
         #print(f'Phrase : {phrase}, Pages : {matched_lines['pages']}, matches : {len(matched_lines['matched_lines'])}')
+        details[phrase] = {
+            'pages': matched_lines['pages'],
+        }
 
         for matched_line in matched_lines['matched_lines']:
             # Ajouter le bloc associé si ce n'est pas déjà dans la liste des résultats
@@ -164,7 +167,7 @@ def find_text_blocks_with_tolerance(textract_data: dict, phrases: List[str], tol
                 matches.append((matched_line['datas'], phrase))
 
     print('recherche des matches terminé')
-    return matches
+    return matches, details
 
 
 
@@ -538,7 +541,7 @@ def lambda_handler(event, context):
         if highlight and len(highlight) > 0:
             # Extraire les phrases à surligner
             # phrases_to_highlight = ['arnaud de la bédoyère', 'daxte', 'g3cb', 'société']
-            matches = find_text_blocks_with_tolerance(textract_data, highlight, tolerance=0.6)
+            matches, details = find_text_blocks_with_tolerance(textract_data, highlight, tolerance=0.6)
             
             print('Surlignage des matchs dans les pages')
             highlighted_pdf = highlight_phrases_in_pdf(pdf_data, matches, 0, zoom_x=1.0, zoom_y=1.0, force_rotation_angle=0)
@@ -550,4 +553,4 @@ def lambda_handler(event, context):
             encoded_pdf = base64.b64encode(pdf_data).decode('utf-8')
         
         
-        return generate_response(200, {"type": "pdf", "datas": encoded_pdf})
+        return generate_response(200, {"type": "pdf","details": details, "datas": encoded_pdf})
