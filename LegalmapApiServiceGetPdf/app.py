@@ -537,7 +537,8 @@ def lambda_handler(event, context):
                 with open(textract_data_path, 'w') as textract_file:
                     json.dump(textract_data, textract_file)
 
-        
+        details = {}
+
         if highlight and len(highlight) > 0:
             # Extraire les phrases à surligner
             # phrases_to_highlight = ['arnaud de la bédoyère', 'daxte', 'g3cb', 'société']
